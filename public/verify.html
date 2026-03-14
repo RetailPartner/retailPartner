@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Account – Retail Partner</title>
+  <meta name="description" content="Complete your partner verification to start receiving textile stock on credit.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <div class="logo">
+        <span class="logo-icon">🧵</span>
+        <span class="logo-text">Retail Partner</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Verification Choice -->
+  <section class="section verify-choice" id="verifyChoice">
+    <div class="container">
+      <h1>Verify Your Identity</h1>
+      <p class="verify-sub">Choose a verification method to become a Retail Partner.</p>
+      <div class="choice-grid">
+        <div class="choice-card" id="choiceVideo">
+          <div class="choice-icon">📹</div>
+          <h3>Video Verification</h3>
+          <p>Quick video call with our team. Takes about 5 minutes.</p>
+          <span class="badge badge-fast">Fastest</span>
+        </div>
+        <div class="choice-card" id="choiceForm">
+          <div class="choice-icon">📋</div>
+          <h3>Form Verification</h3>
+          <p>Fill a simple form with your details. Our team will review and contact you.</p>
+          <span class="badge">Recommended</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Video Verification -->
+  <section class="section verify-video hidden" id="verifyVideo">
+    <div class="container">
+      <div class="info-box">
+        <h2>Video Verification</h2>
+        <p>Our team will call you for a short video verification. Please keep the following ready:</p>
+        <ul>
+          <li>Your Aadhaar card or PAN card</li>
+          <li>Good internet connection</li>
+          <li>A well-lit room</li>
+        </ul>
+        <p class="mt-1">Enter your phone number and our team will schedule a video call within 24 hours.</p>
+        <div class="form-group">
+          <label for="videoPhone">Mobile Number</label>
+          <input type="tel" id="videoPhone" placeholder="Enter 10-digit mobile number" maxlength="10" pattern="[0-9]{10}">
+        </div>
+        <button class="btn btn-primary" id="videoSubmitBtn">Request Video Call</button>
+        <button class="btn btn-link" id="videoBackBtn">← Go back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Form Verification -->
+  <section class="section verify-form hidden" id="verifyForm">
+    <div class="container">
+      <!-- Progress bar -->
+      <div class="progress-bar">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-steps">
+          <span class="progress-step active" data-step="1">1</span>
+          <span class="progress-step" data-step="2">2</span>
+          <span class="progress-step" data-step="3">3</span>
+          <span class="progress-step" data-step="4">4</span>
+        </div>
+      </div>
+
+      <!-- Step 1 -->
+      <div class="form-step active" id="step1">
+        <h2>Personal Details</h2>
+        <p class="step-desc">Let's start with your basic information.</p>
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input type="text" id="fullName" placeholder="Enter your full name" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="mobile">Mobile Number</label>
+          <input type="tel" id="mobile" placeholder="Enter 10-digit mobile number" maxlength="10" pattern="[0-9]{10}" autocomplete="tel">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="step1Back">← Back</button>
+          <button class="btn btn-primary" id="step1Next">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="form-step" id="step2">
+        <h2>Address & Age</h2>
+        <p class="step-desc">We need your current address for delivery purposes.</p>
+        <div class="form-group">
+          <label for="homeAddress">Current Home Address</label>
+          <textarea id="homeAddress" rows="3" placeholder="Enter your full home address"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="age">Age</label>
+          <input type="number" id="age" placeholder="Enter your age" min="18" max="99">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="step2Back">← Back</button>
+          <button class="btn btn-primary" id="step2Next">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="form-step" id="step3">
+        <h2>Business Details</h2>
+        <p class="step-desc">Tell us about where you sell or plan to sell.</p>
+        <div class="form-group">
+          <label for="shopName">Shop / Store Name</label>
+          <input type="text" id="shopName" placeholder="Enter your shop or store name">
+        </div>
+        <div class="form-group" id="shopAddressGroup">
+          <label for="shopAddress">Shop Address</label>
+          <textarea id="shopAddress" rows="3" placeholder="Enter your shop address"></textarea>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="sellingFromHome">
+            <span class="checkmark"></span>
+            I sell from home
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="step3Back">← Back</button>
+          <button class="btn btn-primary" id="step3Next">Next →</button>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="form-step" id="step4">
+        <h2>Photo & ID Proof</h2>
+        <p class="step-desc">Almost done! We need your photo and an ID for verification.</p>
+
+        <!-- Camera -->
+        <div class="form-group">
+          <label>Your Photo</label>
+          <div class="camera-area" id="cameraArea">
+            <div class="camera-circle" id="cameraCircle">
+              <video id="cameraPreview" autoplay playsinline></video>
+              <canvas id="cameraCanvas" class="hidden"></canvas>
+              <img id="capturedImg" class="hidden" alt="Captured photo">
+              <div class="face-status" id="faceStatus">Position your face</div>
+            </div>
+            <div class="camera-controls">
+              <button class="btn btn-primary btn-sm" id="captureBtn">Take Photo</button>
+              <button class="btn btn-secondary btn-sm hidden" id="retakeBtn">Retake</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ID Proof -->
+        <div class="form-group">
+          <label>ID Proof</label>
+          <div class="id-type-select">
+            <label class="radio-label">
+              <input type="radio" name="idType" value="aadhaar" checked>
+              <span>Aadhaar Card</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="idType" value="pancard">
+              <span>PAN Card</span>
+            </label>
+          </div>
+          <div class="upload-area" id="uploadArea">
+            <input type="file" id="idProofInput" accept="image/*" class="hidden">
+            <div class="upload-placeholder" id="uploadPlaceholder">
+              <span class="upload-icon">📄</span>
+              <p>Tap to upload your <span id="idTypeName">Aadhaar Card</span></p>
+            </div>
+            <div class="upload-preview hidden" id="uploadPreview">
+              <img id="uploadedImg" alt="ID proof">
+              <button class="btn btn-sm btn-link" id="changeIdBtn">Change</button>
+            </div>
+            <div class="upload-status hidden" id="uploadStatus">
+              <span class="upload-spinner"></span> Uploading...
+            </div>
+          </div>
+        </div>
+
+        <!-- T&C -->
+        <div class="form-group checkbox-group tc-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="tcAccepted">
+            <span class="checkmark"></span>
+            I have read and agree to the <a href="/terms" target="_blank">Terms & Conditions</a>
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="step4Back">← Back</button>
+          <button class="btn btn-primary" id="submitBtn">Submit Application</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Success -->
+  <section class="section verify-success hidden" id="verifySuccess">
+    <div class="container">
+      <div class="success-box">
+        <div class="success-icon">✅</div>
+        <h2>Verification Under Review</h2>
+        <p>Thank you for submitting your application! Our team will review your details and contact you within 24-48 hours after successful verification.</p>
+        <p class="success-note">Please keep your phone available for our call.</p>
+        <a href="/" class="btn btn-secondary">Go to Home</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2026 Retail Partner. All rights reserved.</p>
+      <a href="/terms">Terms & Conditions</a>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script src="/js/data-capture.js"></script>
+  <script src="/js/camera.js"></script>
+  <script src="/js/verify.js"></script>
+</body>
+</html>

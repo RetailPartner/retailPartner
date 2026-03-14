@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin – Retail Partner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Poppins', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+    h1 { color: #fff; margin-bottom: 8px; font-size: 22px; }
+    .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .tab { padding: 8px 20px; border-radius: 8px; border: 1px solid #333; background: #16213e; color: #aaa; cursor: pointer; font-family: inherit; font-size: 14px; }
+    .tab.active { background: #8B1A4A; color: #fff; border-color: #8B1A4A; }
+    .card { background: #16213e; border-radius: 10px; padding: 20px; margin-bottom: 16px; border: 1px solid #2a2a4a; }
+    .card h3 { font-size: 16px; color: #D4A853; margin-bottom: 12px; }
+    .field { display: flex; margin-bottom: 8px; font-size: 13px; }
+    .field-label { width: 160px; color: #888; flex-shrink: 0; }
+    .field-value { color: #e0e0e0; word-break: break-all; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-pending { background: #D4A853; color: #1a1a2e; }
+    .badge-review { background: #2E7D5B; color: #fff; }
+    .empty { text-align: center; padding: 40px; color: #555; font-size: 15px; }
+    .refresh-btn { background: #8B1A4A; color: #fff; border: none; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13px; margin-bottom: 20px; }
+    .count { background: #2a2a4a; padding: 2px 8px; border-radius: 10px; font-size: 11px; color: #aaa; margin-left: 6px; }
+    .photo-thumb { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #333; }
+  </style>
+</head>
+<body>
+  <h1>📊 Retail Partner Admin</h1>
+  <p class="subtitle">View all collected visitor and application data</p>
+  <button class="refresh-btn" onclick="loadData()">↻ Refresh Data</button>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('visitors', this)">Visitors <span id="visitorCount" class="count">0</span></button>
+    <button class="tab" onclick="showTab('applications', this)">Applications <span id="appCount" class="count">0</span></button>
+  </div>
+
+  <div id="visitors"></div>
+  <div id="applications" style="display:none"></div>
+
+  <script>
+    function showTab(tab, btn) {
+      document.getElementById('visitors').style.display = tab === 'visitors' ? 'block' : 'none';
+      document.getElementById('applications').style.display = tab === 'applications' ? 'block' : 'none';
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function field(label, value) {
+      return `<div class="field"><span class="field-label">${label}</span><span class="field-value">${value || '—'}</span></div>`;
+    }
+
+    async function loadData() {
+      // Visitors
+      const vRes = await fetch('/api/admin/visitors');
+      const visitors = await vRes.json();
+      document.getElementById('visitorCount').textContent = visitors.length;
+
+      if (visitors.length === 0) {
+        document.getElementById('visitors').innerHTML = '<div class="empty">No visitors yet</div>';
+      } else {
+        document.getElementById('visitors').innerHTML = visitors.map((v, i) => `
+          <div class="card">
+            <h3>Visitor #${v.id} — ${v.created_at || 'Unknown time'}</h3>
+            ${field('IP Address', v.ip)}
+            ${field('City / Region', (v.city || '') + (v.region ? ', ' + v.region : ''))}
+            ${field('Country', v.country)}
+            ${field('Lat / Lng', v.latitude && v.longitude ? v.latitude + ', ' + v.longitude : null)}
+            ${field('Browser Geo', v.browser_geo_lat && v.browser_geo_lng ? v.browser_geo_lat + ', ' + v.browser_geo_lng : null)}
+            ${field('ISP', v.isp)}
+            ${field('Timezone', v.timezone)}
+            ${field('User Agent', v.user_agent)}
+            ${field('Screen', v.screen_width && v.screen_height ? v.screen_width + ' × ' + v.screen_height : null)}
+            ${field('Language', v.language)}
+            ${field('Referrer', v.referrer)}
+          </div>
+        `).join('');
+      }
+
+      // Applications
+      const aRes = await fetch('/api/admin/applications');
+      const apps = await aRes.json();
+      document.getElementById('appCount').textContent = apps.length;
+
+      if (apps.length === 0) {
+        document.getElementById('applications').innerHTML = '<div class="empty">No applications yet</div>';
+      } else {
+        document.getElementById('applications').innerHTML = apps.map(a => `
+          <div class="card">
+            <h3>Application #${a.id} <span class="badge ${a.status === 'under_review' ? 'badge-review' : 'badge-pending'}">${a.status || 'pending'}</span></h3>
+            ${field('Full Name', a.full_name)}
+            ${field('Mobile', a.mobile)}
+            ${field('Home Address', a.home_address)}
+            ${field('Age', a.age)}
+            ${field('Shop Name', a.shop_name)}
+            ${field('Shop Address', a.shop_address)}
+            ${field('Selling from Home', a.selling_from_home ? 'Yes' : 'No')}
+            ${field('ID Proof Type', a.id_proof_type)}
+            ${field('ID Proof File', a.id_proof_path)}
+            ${field('Photo File', a.photo_path)}
+            ${field('T&C Accepted', a.tc_accepted ? 'Yes' : 'No')}
+            ${field('Current Step', a.current_step + ' / 4')}
+            ${field('Visitor ID', a.visitor_id)}
+            ${field('Created', a.created_at)}
+            ${field('Updated', a.updated_at)}
+          </div>
+        `).join('');
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

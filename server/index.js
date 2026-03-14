@@ -156,12 +156,51 @@ app.post('/api/application/:id/id-proof-type', (req, res) => {
   }
 });
 
+// ---- ADMIN API ----
+
+app.get('/api/admin/visitors', (req, res) => {
+  try {
+    const db = getDB();
+    const result = db.exec('SELECT * FROM visitors ORDER BY id DESC');
+    if (!result.length) return res.json([]);
+    const columns = result[0].columns;
+    const rows = result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, i) => obj[col] = row[i]);
+      return obj;
+    });
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch visitors' });
+  }
+});
+
+app.get('/api/admin/applications', (req, res) => {
+  try {
+    const db = getDB();
+    const result = db.exec('SELECT * FROM applications ORDER BY id DESC');
+    if (!result.length) return res.json([]);
+    const columns = result[0].columns;
+    const rows = result[0].values.map(row => {
+      const obj = {};
+      columns.forEach((col, i) => obj[col] = row[i]);
+      return obj;
+    });
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch applications' });
+  }
+});
+
 // SPA fallback
 app.get('/verify', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'verify.html'));
 });
 app.get('/terms', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+});
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 
 // Start server

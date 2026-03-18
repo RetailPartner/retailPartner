@@ -52,6 +52,16 @@
       return `<div class="field"><span class="field-label">${label}</span><span class="field-value">${value || '—'}</span></div>`;
     }
 
+    function formatIST(dateString) {
+      if (!dateString) return 'Unknown time';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true }) + ' IST';
+      } catch (e) {
+        return dateString;
+      }
+    }
+
     async function loadData() {
       // Visitors
       const vRes = await fetch('/api/admin/visitors');
@@ -63,7 +73,7 @@
       } else {
         document.getElementById('visitors').innerHTML = visitors.map((v, i) => `
           <div class="card">
-            <h3>Visitor #${v._id} — ${v.createdAt || 'Unknown time'}</h3>
+            <h3>Visitor #${v._id} — ${formatIST(v.createdAt)}</h3>
             ${field('IP Address', v.ip)}
             ${field('City / Region', (v.city || '') + (v.region ? ', ' + v.region : ''))}
             ${field('Country', v.country)}
@@ -103,8 +113,8 @@
             ${field('T&C Accepted', a.tc_accepted ? 'Yes' : 'No')}
             ${field('Current Step', a.current_step + ' / 4')}
             ${field('Visitor ID', a.visitor_id)}
-            ${field('Created', a.createdAt)}
-            ${field('Updated', a.updatedAt)}
+            ${field('Created', formatIST(a.createdAt))}
+            ${field('Updated', formatIST(a.updatedAt))}
           </div>
         `).join('');
       }

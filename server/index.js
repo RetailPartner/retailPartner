@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Ensure uploads directory
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -40,8 +41,8 @@ app.post('/api/visitor', (req, res) => {
     const clientIp = d.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || req.socket?.remoteAddress || null;
 
     const stmt = db.prepare(`
-      INSERT INTO visitors (ip, city, region, country, latitude, longitude, isp, timezone, user_agent, screen_width, screen_height, language, referrer, browser_geo_lat, browser_geo_lng)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO visitors (ip, city, region, country, latitude, longitude, isp, timezone, user_agent, screen_width, screen_height, language, referrer, browser_geo_lat, browser_geo_lng, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+5 hours', '+30 minutes'))
     `);
     stmt.run([
       clientIp, d.city || null, d.region || null, d.country || null,
@@ -50,10 +51,11 @@ app.post('/api/visitor', (req, res) => {
       d.language || null, d.referrer || null, d.browser_geo_lat || null, d.browser_geo_lng || null
     ]);
     stmt.free();
-    saveDB();
 
     const result = db.exec('SELECT last_insert_rowid() as id');
     const visitorId = result[0].values[0][0];
+    saveDB();
+
     console.log('Visitor saved with ID:', visitorId);
     res.json({ success: true, visitorId });
   } catch (err) {
@@ -67,13 +69,14 @@ app.post('/api/application/start', (req, res) => {
   try {
     const db = getDB();
     const { visitorId } = req.body;
-    const stmt = db.prepare(`INSERT INTO applications (visitor_id, current_step) VALUES (?, 1)`);
+    const stmt = db.prepare(`INSERT INTO applications (visitor_id, current_step, created_at, updated_at) VALUES (?, 1, datetime('now', '+5 hours', '+30 minutes'), datetime('now', '+5 hours', '+30 minutes'))`);
     stmt.run([visitorId || null]);
     stmt.free();
-    saveDB();
 
     const result = db.exec('SELECT last_insert_rowid() as id');
     const appId = result[0].values[0][0];
+    saveDB();
+
     res.json({ success: true, appId });
   } catch (err) {
     console.error('Error starting application:', err);
@@ -95,19 +98,19 @@ app.post('/api/application/:id/step/:step', (req, res) => {
 
     switch (stepNum) {
       case 1:
-        sql = `UPDATE applications SET full_name = ?, mobile = ?, current_step = 2, updated_at = datetime('now') WHERE id = ?`;
+        sql = `UPDATE applications SET full_name = ?, mobile = ?, current_step = 2, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
         params = [data.full_name, data.mobile, appId];
         break;
       case 2:
-        sql = `UPDATE applications SET home_address = ?, age = ?, current_step = 3, updated_at = datetime('now') WHERE id = ?`;
+        sql = `UPDATE applications SET home_address = ?, age = ?, current_step = 3, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
         params = [data.home_address, data.age, appId];
         break;
       case 3:
-        sql = `UPDATE applications SET shop_name = ?, shop_address = ?, selling_from_home = ?, current_step = 4, updated_at = datetime('now') WHERE id = ?`;
+        sql = `UPDATE applications SET shop_name = ?, shop_address = ?, selling_from_home = ?, current_step = 4, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
         params = [data.shop_name, data.shop_address, data.selling_from_home ? 1 : 0, appId];
         break;
       case 4:
-        sql = `UPDATE applications SET tc_accepted = ?, current_step = 5, status = 'under_review', updated_at = datetime('now') WHERE id = ?`;
+        sql = `UPDATE applications SET tc_accepted = ?, current_step = 5, status = 'under_review', updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
         params = [data.tc_accepted ? 1 : 0, appId];
         break;
       default:
@@ -138,9 +141,9 @@ app.post('/api/upload/:type/:id', upload.single('file'), (req, res) => {
 
     let sql = '';
     if (type === 'photo') {
-      sql = `UPDATE applications SET photo_path = ?, updated_at = datetime('now') WHERE id = ?`;
+      sql = `UPDATE applications SET photo_path = ?, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
     } else if (type === 'id-proof') {
-      sql = `UPDATE applications SET id_proof_path = ?, updated_at = datetime('now') WHERE id = ?`;
+      sql = `UPDATE applications SET id_proof_path = ?, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
     } else {
       return res.status(400).json({ error: 'Invalid upload type' });
     }
@@ -162,7 +165,7 @@ app.post('/api/application/:id/id-proof-type', (req, res) => {
   try {
     const db = getDB();
     const appId = parseInt(req.params.id);
-    const stmt = db.prepare(`UPDATE applications SET id_proof_type = ?, updated_at = datetime('now') WHERE id = ?`);
+    const stmt = db.prepare(`UPDATE applications SET id_proof_type = ?, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`);
     stmt.run([req.body.type, appId]);
     stmt.free();
     saveDB();

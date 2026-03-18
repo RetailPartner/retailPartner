@@ -39,7 +39,7 @@ async function initDB() {
       referrer TEXT,
       browser_geo_lat REAL,
       browser_geo_lng REAL,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now', '+5 hours', '+30 minutes'))
     )
   `);
 
@@ -60,8 +60,8 @@ async function initDB() {
       tc_accepted INTEGER DEFAULT 0,
       current_step INTEGER DEFAULT 0,
       status TEXT DEFAULT 'pending',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT (datetime('now', '+5 hours', '+30 minutes')),
+      updated_at TEXT DEFAULT (datetime('now', '+5 hours', '+30 minutes')),
       FOREIGN KEY (visitor_id) REFERENCES visitors(id)
     )
   `);

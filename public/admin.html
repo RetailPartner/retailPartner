@@ -98,8 +98,8 @@
             ${field('Shop Address', a.shop_address)}
             ${field('Selling from Home', a.selling_from_home ? 'Yes' : 'No')}
             ${field('ID Proof Type', a.id_proof_type)}
-            ${field('ID Proof File', a.id_proof_path)}
-            ${field('Photo File', a.photo_path)}
+            ${field('ID Proof File', a.id_proof_path ? `<a href="/uploads/${a.id_proof_path}" target="_blank"><img src="/uploads/${a.id_proof_path}" class="photo-thumb" alt="ID"></a>` : null)}
+            ${field('Photo File', a.photo_path ? `<a href="/uploads/${a.photo_path}" target="_blank"><img src="/uploads/${a.photo_path}" class="photo-thumb" alt="Photo"></a>` : null)}
             ${field('T&C Accepted', a.tc_accepted ? 'Yes' : 'No')}
             ${field('Current Step', a.current_step + ' / 4')}
             ${field('Visitor ID', a.visitor_id)}

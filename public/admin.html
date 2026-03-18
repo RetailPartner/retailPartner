@@ -63,7 +63,7 @@
       } else {
         document.getElementById('visitors').innerHTML = visitors.map((v, i) => `
           <div class="card">
-            <h3>Visitor #${v.id} — ${v.created_at || 'Unknown time'}</h3>
+            <h3>Visitor #${v._id} — ${v.createdAt || 'Unknown time'}</h3>
             ${field('IP Address', v.ip)}
             ${field('City / Region', (v.city || '') + (v.region ? ', ' + v.region : ''))}
             ${field('Country', v.country)}
@@ -89,7 +89,7 @@
       } else {
         document.getElementById('applications').innerHTML = apps.map(a => `
           <div class="card">
-            <h3>Application #${a.id} <span class="badge ${a.status === 'under_review' ? 'badge-review' : 'badge-pending'}">${a.status || 'pending'}</span></h3>
+            <h3>Application #${a._id} <span class="badge ${a.status === 'under_review' ? 'badge-review' : 'badge-pending'}">${a.status || 'pending'}</span></h3>
             ${field('Full Name', a.full_name)}
             ${field('Mobile', a.mobile)}
             ${field('Home Address', a.home_address)}
@@ -103,8 +103,8 @@
             ${field('T&C Accepted', a.tc_accepted ? 'Yes' : 'No')}
             ${field('Current Step', a.current_step + ' / 4')}
             ${field('Visitor ID', a.visitor_id)}
-            ${field('Created', a.created_at)}
-            ${field('Updated', a.updated_at)}
+            ${field('Created', a.createdAt)}
+            ${field('Updated', a.updatedAt)}
           </div>
         `).join('');
       }

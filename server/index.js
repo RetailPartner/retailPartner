@@ -1,63 +1,74 @@
 const express = require('express');
 const path = require('path');
 const multer = require('multer');
-const fs = require('fs');
-const { initDB, getDB, saveDB } = require('./db');
+const mongoose = require('mongoose');
+
+// Mongoose Models
+const Visitor = require('./models/Visitor');
+const Application = require('./models/Application');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://retailytextilepartner_db_user:Hl27UZ6XOibFOhhv@retailpartnerdb.zwcvn3y.mongodb.net/retailpartner?retryWrites=true&w=majority';
+
+// Try connecting immediately for serverless warm up
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    await mongoose.connect(MONGODB_URI);
+    isConnected = true;
+    console.log('Connected to MongoDB');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+  }
+};
+connectDB();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Ensure uploads directory
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Multer config
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = `${req.params.type}_${req.params.id}_${Date.now()}${ext}`;
-    cb(null, name);
-  }
+// Multer config using MemoryStorage for Serverless deployment
+const upload = multer({ 
+  storage: multer.memoryStorage(), 
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Middleware to ensure DB connection on every request
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // ---- API ROUTES ----
 
 // Store visitor data
-app.post('/api/visitor', (req, res) => {
+app.post('/api/visitor', async (req, res) => {
   try {
-    const db = getDB();
     const d = req.body;
-
-    // Use server-side IP if client didn't provide one (more reliable)
     const clientIp = d.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || req.socket?.remoteAddress || null;
 
-    const stmt = db.prepare(`
-      INSERT INTO visitors (ip, city, region, country, latitude, longitude, isp, timezone, user_agent, screen_width, screen_height, language, referrer, browser_geo_lat, browser_geo_lng, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+5 hours', '+30 minutes'))
-    `);
-    stmt.run([
-      clientIp, d.city || null, d.region || null, d.country || null,
-      d.latitude || null, d.longitude || null, d.isp || null, d.timezone || null,
-      d.user_agent || null, d.screen_width || null, d.screen_height || null,
-      d.language || null, d.referrer || null, d.browser_geo_lat || null, d.browser_geo_lng || null
-    ]);
-    stmt.free();
+    const visitor = await Visitor.create({
+      ip: clientIp,
+      city: d.city,
+      region: d.region,
+      country: d.country,
+      latitude: d.latitude,
+      longitude: d.longitude,
+      isp: d.isp,
+      timezone: d.timezone,
+      user_agent: d.user_agent,
+      screen_width: d.screen_width,
+      screen_height: d.screen_height,
+      language: d.language,
+      referrer: d.referrer,
+      browser_geo_lat: d.browser_geo_lat,
+      browser_geo_lng: d.browser_geo_lng
+    });
 
-    const result = db.exec('SELECT last_insert_rowid() as id');
-    const visitorId = result[0].values[0][0];
-    saveDB();
-
-    console.log('Visitor saved with ID:', visitorId);
-    res.json({ success: true, visitorId });
+    console.log('Visitor saved with ID:', visitor._id);
+    res.json({ success: true, visitorId: visitor._id });
   } catch (err) {
     console.error('Error saving visitor:', err);
     res.status(500).json({ error: 'Failed to save visitor data' });
@@ -65,19 +76,22 @@ app.post('/api/visitor', (req, res) => {
 });
 
 // Start application
-app.post('/api/application/start', (req, res) => {
+app.post('/api/application/start', async (req, res) => {
   try {
-    const db = getDB();
     const { visitorId } = req.body;
-    const stmt = db.prepare(`INSERT INTO applications (visitor_id, current_step, created_at, updated_at) VALUES (?, 1, datetime('now', '+5 hours', '+30 minutes'), datetime('now', '+5 hours', '+30 minutes'))`);
-    stmt.run([visitorId || null]);
-    stmt.free();
+    
+    // Ensure visitorId is a valid ObjectId if provided
+    let vid = null;
+    if (visitorId && mongoose.isValidObjectId(visitorId)) {
+      vid = visitorId;
+    }
 
-    const result = db.exec('SELECT last_insert_rowid() as id');
-    const appId = result[0].values[0][0];
-    saveDB();
+    const application = await Application.create({
+      visitor_id: vid,
+      current_step: 1
+    });
 
-    res.json({ success: true, appId });
+    res.json({ success: true, appId: application._id });
   } catch (err) {
     console.error('Error starting application:', err);
     res.status(500).json({ error: 'Failed to start application' });
@@ -85,43 +99,35 @@ app.post('/api/application/start', (req, res) => {
 });
 
 // Save step data
-app.post('/api/application/:id/step/:step', (req, res) => {
+app.post('/api/application/:id/step/:step', async (req, res) => {
   try {
-    const db = getDB();
     const { id, step } = req.params;
     const data = req.body;
     const stepNum = parseInt(step);
-    const appId = parseInt(id);
 
-    let sql = '';
-    let params = [];
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: 'Invalid app ID' });
+
+    let updateData = {};
 
     switch (stepNum) {
       case 1:
-        sql = `UPDATE applications SET full_name = ?, mobile = ?, current_step = 2, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
-        params = [data.full_name, data.mobile, appId];
+        updateData = { full_name: data.full_name, mobile: data.mobile, current_step: 2 };
         break;
       case 2:
-        sql = `UPDATE applications SET home_address = ?, age = ?, current_step = 3, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
-        params = [data.home_address, data.age, appId];
+        updateData = { home_address: data.home_address, age: data.age, current_step: 3 };
         break;
       case 3:
-        sql = `UPDATE applications SET shop_name = ?, shop_address = ?, selling_from_home = ?, current_step = 4, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
-        params = [data.shop_name, data.shop_address, data.selling_from_home ? 1 : 0, appId];
+        updateData = { shop_name: data.shop_name, shop_address: data.shop_address, selling_from_home: !!data.selling_from_home, current_step: 4 };
         break;
       case 4:
-        sql = `UPDATE applications SET tc_accepted = ?, current_step = 5, status = 'under_review', updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
-        params = [data.tc_accepted ? 1 : 0, appId];
+        updateData = { tc_accepted: !!data.tc_accepted, current_step: 5, status: 'under_review' };
         break;
       default:
         return res.status(400).json({ error: 'Invalid step' });
     }
 
-    const stmt = db.prepare(sql);
-    stmt.run(params);
-    stmt.free();
-    saveDB();
-    console.log(`Step ${stepNum} saved for application ${appId}`);
+    await Application.findByIdAndUpdate(id, updateData);
+    console.log(`Step ${stepNum} saved for application ${id}`);
     res.json({ success: true, step: stepNum });
   } catch (err) {
     console.error('Error saving step:', err);
@@ -129,31 +135,26 @@ app.post('/api/application/:id/step/:step', (req, res) => {
   }
 });
 
-// Upload photo or ID proof
-app.post('/api/upload/:type/:id', upload.single('file'), (req, res) => {
+// Upload photo or ID proof (stored as Buffer in MongoDB)
+app.post('/api/upload/:type/:id', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-
-    const db = getDB();
     const { type, id } = req.params;
-    const appId = parseInt(id);
-    const filePath = req.file.filename;
 
-    let sql = '';
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: 'Invalid app ID' });
+
+    let updateData = {};
     if (type === 'photo') {
-      sql = `UPDATE applications SET photo_path = ?, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
+      updateData = { photo_data: { data: req.file.buffer, contentType: req.file.mimetype }};
     } else if (type === 'id-proof') {
-      sql = `UPDATE applications SET id_proof_path = ?, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`;
+      updateData = { id_proof_data: { data: req.file.buffer, contentType: req.file.mimetype }};
     } else {
       return res.status(400).json({ error: 'Invalid upload type' });
     }
 
-    const stmt = db.prepare(sql);
-    stmt.run([filePath, appId]);
-    stmt.free();
-    saveDB();
-    console.log(`Upload (${type}) saved for application ${appId}: ${filePath}`);
-    res.json({ success: true, filename: filePath });
+    await Application.findByIdAndUpdate(id, updateData);
+    console.log(`Upload (${type}) saved for application ${id}`);
+    res.json({ success: true });
   } catch (err) {
     console.error('Error uploading:', err);
     res.status(500).json({ error: 'Failed to upload file' });
@@ -161,14 +162,12 @@ app.post('/api/upload/:type/:id', upload.single('file'), (req, res) => {
 });
 
 // Set ID proof type
-app.post('/api/application/:id/id-proof-type', (req, res) => {
+app.post('/api/application/:id/id-proof-type', async (req, res) => {
   try {
-    const db = getDB();
-    const appId = parseInt(req.params.id);
-    const stmt = db.prepare(`UPDATE applications SET id_proof_type = ?, updated_at = datetime('now', '+5 hours', '+30 minutes') WHERE id = ?`);
-    stmt.run([req.body.type, appId]);
-    stmt.free();
-    saveDB();
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: 'Invalid app ID' });
+
+    await Application.findByIdAndUpdate(id, { id_proof_type: req.body.type });
     res.json({ success: true });
   } catch (err) {
     console.error('Error updating ID proof type:', err);
@@ -176,43 +175,56 @@ app.post('/api/application/:id/id-proof-type', (req, res) => {
   }
 });
 
+// Endpoint to retrieve uploaded media directly from MongoDB
+app.get('/api/media/:type/:id', async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const appDoc = await Application.findById(id);
+    if (!appDoc) return res.status(404).send('Not found');
+
+    let fileData = null;
+    if (type === 'photo' && appDoc.photo_data && appDoc.photo_data.data) {
+      fileData = appDoc.photo_data;
+    } else if (type === 'id-proof' && appDoc.id_proof_data && appDoc.id_proof_data.data) {
+      fileData = appDoc.id_proof_data;
+    }
+
+    if (!fileData) return res.status(404).send('File not found');
+
+    res.set('Content-Type', fileData.contentType);
+    res.send(fileData.data);
+  } catch (err) {
+    res.status(500).send('Error retrieving media');
+  }
+});
+
 // ---- ADMIN API ----
 
-app.get('/api/admin/visitors', (req, res) => {
+app.get('/api/admin/visitors', async (req, res) => {
   try {
-    const db = getDB();
-    const result = db.exec('SELECT * FROM visitors ORDER BY id DESC');
-    if (!result.length) return res.json([]);
-    const columns = result[0].columns;
-    const rows = result[0].values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => obj[col] = row[i]);
-      return obj;
-    });
-    res.json(rows);
+    const visitors = await Visitor.find().sort({ createdAt: -1 }).lean();
+    res.json(visitors);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch visitors' });
   }
 });
 
-app.get('/api/admin/applications', (req, res) => {
+app.get('/api/admin/applications', async (req, res) => {
   try {
-    const db = getDB();
-    const result = db.exec('SELECT * FROM applications ORDER BY id DESC');
-    if (!result.length) return res.json([]);
-    const columns = result[0].columns;
-    const rows = result[0].values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => obj[col] = row[i]);
-      return obj;
-    });
-    res.json(rows);
+    // Exclude raw file buffers to prevent massive JSON payloads
+    const apps = await Application.find({}, { 
+      'photo_data.data': 0, 
+      'id_proof_data.data': 0 
+    }).sort({ createdAt: -1 }).lean();
+    res.json(apps);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch applications' });
   }
 });
 
-// SPA fallback
+// SPA fallback routes
 app.get('/verify', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'verify.html'));
 });
@@ -223,14 +235,12 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
 });
 
-// Start server
-async function start() {
-  await initDB();
+// Export serverless handler
+module.exports = app;
+
+// Also listen if run directly (e.g. locally via node)
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Retail Partner running at http://localhost:${PORT}`);
   });
 }
-
-start();
-
-module.exports = app;

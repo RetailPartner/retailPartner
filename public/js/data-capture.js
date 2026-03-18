@@ -19,7 +19,7 @@
           resolve();
         },
         () => resolve(), // silently fail
-        { timeout: 5000 }
+        { timeout: 10000, enableHighAccuracy: true }
       );
     } else {
       resolve();
@@ -60,6 +60,11 @@
 
   // Wait for both geolocation and IP lookup before sending
   Promise.all([geoPromise, ipPromise]).then(() => {
+    // If device location was successfully fetched, prioritize it over IP-based location
+    if (data.browser_geo_lat && data.browser_geo_lng) {
+      data.latitude = data.browser_geo_lat;
+      data.longitude = data.browser_geo_lng;
+    }
     sendData(data);
   });
 

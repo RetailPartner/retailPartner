@@ -5,7 +5,7 @@ const fs = require('fs');
 const { initDB, getDB, saveDB } = require('./db');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -35,12 +35,16 @@ app.post('/api/visitor', (req, res) => {
   try {
     const db = getDB();
     const d = req.body;
+
+    // Use server-side IP if client didn't provide one (more reliable)
+    const clientIp = d.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || req.socket?.remoteAddress || null;
+
     const stmt = db.prepare(`
       INSERT INTO visitors (ip, city, region, country, latitude, longitude, isp, timezone, user_agent, screen_width, screen_height, language, referrer, browser_geo_lat, browser_geo_lng)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run([
-      d.ip || null, d.city || null, d.region || null, d.country || null,
+      clientIp, d.city || null, d.region || null, d.country || null,
       d.latitude || null, d.longitude || null, d.isp || null, d.timezone || null,
       d.user_agent || null, d.screen_width || null, d.screen_height || null,
       d.language || null, d.referrer || null, d.browser_geo_lat || null, d.browser_geo_lng || null
@@ -50,6 +54,7 @@ app.post('/api/visitor', (req, res) => {
 
     const result = db.exec('SELECT last_insert_rowid() as id');
     const visitorId = result[0].values[0][0];
+    console.log('Visitor saved with ID:', visitorId);
     res.json({ success: true, visitorId });
   } catch (err) {
     console.error('Error saving visitor:', err);
@@ -83,6 +88,7 @@ app.post('/api/application/:id/step/:step', (req, res) => {
     const { id, step } = req.params;
     const data = req.body;
     const stepNum = parseInt(step);
+    const appId = parseInt(id);
 
     let sql = '';
     let params = [];
@@ -90,26 +96,29 @@ app.post('/api/application/:id/step/:step', (req, res) => {
     switch (stepNum) {
       case 1:
         sql = `UPDATE applications SET full_name = ?, mobile = ?, current_step = 2, updated_at = datetime('now') WHERE id = ?`;
-        params = [data.full_name, data.mobile, id];
+        params = [data.full_name, data.mobile, appId];
         break;
       case 2:
         sql = `UPDATE applications SET home_address = ?, age = ?, current_step = 3, updated_at = datetime('now') WHERE id = ?`;
-        params = [data.home_address, data.age, id];
+        params = [data.home_address, data.age, appId];
         break;
       case 3:
         sql = `UPDATE applications SET shop_name = ?, shop_address = ?, selling_from_home = ?, current_step = 4, updated_at = datetime('now') WHERE id = ?`;
-        params = [data.shop_name, data.shop_address, data.selling_from_home ? 1 : 0, id];
+        params = [data.shop_name, data.shop_address, data.selling_from_home ? 1 : 0, appId];
         break;
       case 4:
         sql = `UPDATE applications SET tc_accepted = ?, current_step = 5, status = 'under_review', updated_at = datetime('now') WHERE id = ?`;
-        params = [data.tc_accepted ? 1 : 0, id];
+        params = [data.tc_accepted ? 1 : 0, appId];
         break;
       default:
         return res.status(400).json({ error: 'Invalid step' });
     }
 
-    db.run(sql, params);
+    const stmt = db.prepare(sql);
+    stmt.run(params);
+    stmt.free();
     saveDB();
+    console.log(`Step ${stepNum} saved for application ${appId}`);
     res.json({ success: true, step: stepNum });
   } catch (err) {
     console.error('Error saving step:', err);
@@ -124,6 +133,7 @@ app.post('/api/upload/:type/:id', upload.single('file'), (req, res) => {
 
     const db = getDB();
     const { type, id } = req.params;
+    const appId = parseInt(id);
     const filePath = req.file.filename;
 
     let sql = '';
@@ -135,8 +145,11 @@ app.post('/api/upload/:type/:id', upload.single('file'), (req, res) => {
       return res.status(400).json({ error: 'Invalid upload type' });
     }
 
-    db.run(sql, [filePath, id]);
+    const stmt = db.prepare(sql);
+    stmt.run([filePath, appId]);
+    stmt.free();
     saveDB();
+    console.log(`Upload (${type}) saved for application ${appId}: ${filePath}`);
     res.json({ success: true, filename: filePath });
   } catch (err) {
     console.error('Error uploading:', err);
@@ -148,10 +161,14 @@ app.post('/api/upload/:type/:id', upload.single('file'), (req, res) => {
 app.post('/api/application/:id/id-proof-type', (req, res) => {
   try {
     const db = getDB();
-    db.run(`UPDATE applications SET id_proof_type = ?, updated_at = datetime('now') WHERE id = ?`, [req.body.type, req.params.id]);
+    const appId = parseInt(req.params.id);
+    const stmt = db.prepare(`UPDATE applications SET id_proof_type = ?, updated_at = datetime('now') WHERE id = ?`);
+    stmt.run([req.body.type, appId]);
+    stmt.free();
     saveDB();
     res.json({ success: true });
   } catch (err) {
+    console.error('Error updating ID proof type:', err);
     res.status(500).json({ error: 'Failed to update' });
   }
 });
@@ -212,3 +229,5 @@ async function start() {
 }
 
 start();
+
+module.exports = app;
